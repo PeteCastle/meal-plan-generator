@@ -31,6 +31,7 @@ class QuestionnaireUtils:
                 answer = return_type(_answer)
             except:
                 print(f"{bcolors.FAIL}Invalid input.  Please try again.{bcolors.ENDC}")
+        assert type(answer) == return_type, f"Expected {return_type}, got {type(answer)}"
         return answer
     
     @staticmethod
@@ -100,6 +101,9 @@ class QuestionnaireUtils:
         except ValueError:
             print(f"{bcolors.FAIL}Invalid date or date must be in the future.  Please try again.{bcolors.ENDC}")
             date = QuestionnaireUtils.ask_datetime_question(question)
+            
+        assert date is not None
+        assert type(date) == datetime, f"Expected datetime object, got {type(date)}"
         return date
         
     @staticmethod
@@ -131,4 +135,5 @@ class QuestionnaireUtils:
                 selected_choices = []
 
         print(f"{bcolors.OKGREEN}Selected choices: {', '.join(selected_choices)}{bcolors.ENDC}")
+        assert (type(selected_choices) == tuple) or (type(selected_choices) == list), f"Expected tuple or list, got {type(selected_choices)}"
         return selected_choices

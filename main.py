@@ -27,6 +27,8 @@ class MealPlan:
         assert type(customer) == Customer, "Customer must be a Customer object"
         self.customer = customer
         self.dataset = pd.read_excel("datasets/meal_dataset.xlsx", sheet_name="Meals with SKUs")
+        assert type(self.dataset) == pd.DataFrame, f"Expected DataFrame, got {type(self.dataset)}"
+        assert len(self.dataset) > 0, "Raw dataset is empty"
         self.meals = pd.DataFrame()
         
     def generate_meal_plan(self):
@@ -39,7 +41,6 @@ class MealPlan:
         meals = dataset[dataset['Type'] == MealType[self.customer.type].value]
         for allergy in self.customer.allergies:
             ingredient = Allergen[allergy].value
-            print(ingredient)
             if ingredient == 'Meat':
                 meals = meals[~meals['Main Ingredient'].isin('Chicken','Beef','Pork')]
             else:
@@ -47,7 +48,12 @@ class MealPlan:
         
         meal_schedule, meals_per_day, num_days = self._get_meal_schedule()
         
-        meals_list = meals.sample(n=num_days*meals_per_day, replace=True)
+        try:
+            meals_list = meals.sample(n=num_days*meals_per_day, replace=True)
+        except ValueError:
+            print(f"{bcolors.FAIL}ERROR: Not enough meals in the dataset to generate a meal plan.  Our fault!{bcolors.ENDC}")
+            return None
+        
         meals_list['Date'] = meal_schedule
         if len(meals_list['SKU']) != len(meals_list['SKU'].unique()):
             print(f"{bcolors.WARNING}WARNING: Some meals are repeated. {len(meals_list['SKU']) - len(meals_list['SKU'].unique())} total.{bcolors.ENDC}")
@@ -67,6 +73,8 @@ class MealPlan:
         self.total_cost = len(meals_list) * cost_per_meal
         self.meals_list = meals_list
 
+        assert type(meals_list) == pd.DataFrame, f"Expected DataFrame, got {type(meals_list)}"
+        assert len(meals_list) > 0, "No meals generated"
         return meals_list
     
     def ask_to_generate_document(self):
@@ -81,7 +89,10 @@ class MealPlan:
             doc = DocumentGenerator.generate_document_from_meal_plan(self)
             doc.generate_pdf(f'output/meal_plan', clean_tex=False)
             
-            subprocess.run(['xdg-open', f'output/meal_plan.pdf'])
+            try:
+                subprocess.run(['xdg-open', f'output/meal_plan.pdf'])
+            except Exception as e:
+                print(f"{bcolors.FAIL}An error has occurred when generating the document.  Make sure that  the Latex compiler is installed{bcolors.ENDC}")
 
     def print_meal_plan(self):
         """
@@ -109,6 +120,16 @@ class MealPlan:
                 print(f"\t{bcolors.OKGREEN}{row['Meal']}{bcolors.ENDC} ({row['Main Ingredient']})")
                 print(f"\t  {bcolors.GRAY}{row['Calories']:.1f} calories | {round(row['Carbohydrates (g)'],1)}g of cargs | {round(row['Protein (g)'],1)}g of protein | {round(row['Fat (g)'],1)}g of fat |{bcolors.ENDC}")
             
+    def save_meal_plan(self):
+        """
+        Save the meal plan to a CSV file.
+        """
+        import os
+        self.meals_list.to_csv('output/meal_plan.csv', index=False)
+        print()
+        print(f"{bcolors.OKGREEN}Meal plan saved to {os.getcwd()}/output/meal_plan.csv{bcolors.ENDC}")
+        print()
+    
     def _get_meal_schedule(self):
         """
         Generates a meal schedule based on the customer's frequency, starting date, and ending date.
@@ -138,6 +159,11 @@ class MealPlan:
                 meal_datetime = pd.to_datetime(f"{date.date()} {time}")
                 meal_schedule.append(meal_datetime)
                 
+        assert len(meal_schedule) == meals_per_day * num_days, "Incorrect number of meals in the schedule"
+        assert type(meal_schedule) == list, f"Expected list, got {type(meal_schedule)}"
+        assert type(meals_per_day) == int, f"Expected int, got {type(meals_per_day)}"
+        assert type(num_days) == int, f"Expected int, got {type(num_days)}"
+        
         return meal_schedule, meals_per_day, num_days
     
     def _add_calories(self, df):
@@ -155,11 +181,9 @@ class MealPlan:
         
      
         if MealObjective[self.customer.objective].name == 'WEIGHT_LOSS':
-            print("Weight loss")
             min_calories_per_day = 1500
             max_calories_per_day = 1800
         elif MealObjective[self.customer.objective].name == 'MUSCLE_GAIN':
-            print("Muscle gain")
             min_calories_per_day = 2000
             max_calories_per_day = 2300
         else:
@@ -177,15 +201,18 @@ class MealPlan:
             group['Protein (g)'] = (group['Calories'] * (group['Protein (%)']/100)) * 0.129598
             group['Fat (g)'] = (group['Calories'] * (group['Fat (%)']/100)) * 0.129598
             _df_grouped.append(group)
-            
+        assert type(pd.concat(_df_grouped)) == pd.DataFrame, f"Expected DataFrame, got {type(pd.concat(_df_grouped))}"
+        assert len(pd.concat(_df_grouped)) > 0, "No calories added to the DataFrame"
         return pd.concat(_df_grouped)
     
-if __name__ == "__main__":
+def main():
     print("Welcome to the Meal Plan Generator")
     name = QuestionnaireUtils.ask_question(question = "What is your name?", return_type = str)
-    print("Hello, ", name)
+    print(f"Hello, {bcolors.OKBLUE}{name}{bcolors.ENDC}!")
     age = QuestionnaireUtils.ask_question(question = "How old are you?", return_type = int)
-
+    if age < 18:
+        print(f"{bcolors.FAIL}Sorry, you must be 18 years or older to use this service.{bcolors.ENDC}")
+        return
     gender = QuestionnaireUtils.ask_multiple_choice_question("What is your gender?", Gender.to_dict())
     profile = {
         "name": name,
@@ -200,4 +227,11 @@ if __name__ == "__main__":
     meal_plan = MealPlan(customer)
     meal_plan.generate_meal_plan()
     meal_plan.print_meal_plan()
+    meal_plan.save_meal_plan()
     meal_plan.ask_to_generate_document()
+    
+    print("Thank you for using the Meal Plan Generator")
+    
+if __name__ == "__main__":
+    main()
+    
