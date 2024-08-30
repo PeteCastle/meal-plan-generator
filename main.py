@@ -179,23 +179,54 @@ class MealPlan:
         - None
         """
         
-     
-        if MealObjective[self.customer.objective].name == 'WEIGHT_LOSS':
-            min_calories_per_day = 1500
-            max_calories_per_day = 1800
-        elif MealObjective[self.customer.objective].name == 'MUSCLE_GAIN':
-            min_calories_per_day = 2000
-            max_calories_per_day = 2300
-        else:
-            min_calories_per_day = 1800
-            max_calories_per_day = 2000
+        objective = MealObjective[self.customer.objective].name
+        meal_plan = MealType[self.customer.type].name
+        if objective == 'WEIGHT_LOSS':
+            if meal_plan == 'OMAD':
+                min_calories_per_meal = 1200
+                max_calories_per_meal = 1800
+            elif meal_plan == '2MAD':
+                min_calories_per_meal = 600
+                max_calories_per_meal = 900
+            elif meal_plan == '3MAD':
+                min_calories_per_meal = 400
+                max_calories_per_meal = 600
+            else:
+                min_calories_per_meal = 1500
+                max_calories_per_meal = 1800
+        elif objective == 'MUSCLE_GAIN':
+            if meal_plan == 'OMAD':
+                min_calories_per_meal = 2500
+                max_calories_per_meal = 3500
+            elif meal_plan == '2MAD':
+                min_calories_per_meal = 1250
+                max_calories_per_meal = 1750
+            elif meal_plan == '3MAD':
+                min_calories_per_meal = 833
+                max_calories_per_meal = 1167
+            else:
+                min_calories_per_meal = 2000
+                max_calories_per_meal = 2300
+        else:  # WEIGHT_MAINTAIN
+            if meal_plan == 'OMAD':
+                min_calories_per_meal = 1800
+                max_calories_per_meal = 2400
+            elif meal_plan == '2MAD':
+                min_calories_per_meal = 900
+                max_calories_per_meal = 1200
+            elif meal_plan == '3MAD':
+                min_calories_per_meal = 600
+                max_calories_per_meal = 800
+            else:
+                min_calories_per_meal = 1800
+                max_calories_per_meal = 2000
             
         df_grouped  = df.groupby(df['Date'].dt.date)
         
         _df_grouped = []
         for date, group in df_grouped:
             num_rows = group.shape[0]
-            calories = np.random.randint(min_calories_per_day//3, max_calories_per_day//3, num_rows)
+            calories = np.random.randint(min_calories_per_meal, max_calories_per_meal, num_rows)
             group['Calories'] = calories
             group['Carbohydrates (g)'] = (group['Calories'] * (group['Carbohydrate (%)']/100)) * 0.129598
             group['Protein (g)'] = (group['Calories'] * (group['Protein (%)']/100)) * 0.129598
